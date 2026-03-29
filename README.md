@@ -44,5 +44,3 @@ The dashboard will be available at `http://localhost:3000`.
 - `frontend/`: React components and UI logic.
 - `README.md`: This file.
 
-## 🛡️ License
-MIT License - feel free to use and modify for your own projects.
