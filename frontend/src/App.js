@@ -422,6 +422,7 @@ export default function App() {
     setLoading(true); setError(""); setFieldErrors({});
     try {
       const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+      console.log("Current Prediction Server:", apiUrl);
       const res = await fetch(`${apiUrl}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -442,6 +443,7 @@ export default function App() {
     setAiLoading(true);
     try {
       const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+      console.log("Current AI Server:", apiUrl);
       const res = await fetch(`${apiUrl}/explain`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
