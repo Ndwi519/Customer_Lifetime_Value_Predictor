@@ -3,14 +3,29 @@ import "./App.css";
 
 /* ── helpers ─────────────────────────────────────── */
 function getCatClass(cat) {
-  if (cat === "High Value") return { badge: "seg-high", color: "col-high" };
-  return                           { badge: "seg-low",  color: "col-low"  };
+  if (cat.includes("Loyal")) return { badge: "seg-loyal", color: "col-loyal" };
+  
+  // Use startsWith to distinguish "High Value" from "Not High Value"
+  if (cat.startsWith("High Value")) {
+    if (cat.includes("At Risk") || cat.includes("Churned") || cat.includes("Sleeping"))
+      return { badge: "seg-mid", color: "col-mid" };
+    return { badge: "seg-high", color: "col-high" };
+  }
+  return { badge: "seg-low", color: "col-low" };
 }
 
 function getCatMeaning(cat) {
-  if (cat === "High Value")
-    return "This customer is among your most valuable. They buy often, spend well, and bought recently. Prioritise retention and offer exclusive loyalty rewards.";
-  return "This customer shows lower engagement or spend relative to the dataset. Consider a targeted re-engagement or win-back campaign to increase their value over time.";
+  if (cat.includes("Loyal"))
+    return "This customer is exceptionally loyal and buys very frequently. Even if their per-order spend is modest, their lifetime volume and reliability are extremely high. Focus on cross-selling to increase their basket size.";
+
+  if (cat.startsWith("High Value")) {
+    if (cat.includes("Churned") || cat.includes("Sleeping"))
+      return "This was once a very valuable customer, but they haven't purchased in over a year. They are considered 'Lost' or 'Churned'. A major win-back campaign with a high discount is needed.";
+    if (cat.includes("At Risk"))
+      return "This is a premium customer who is currently drifting away (no purchase in 6+ months). Prioritise re-engagement immediately to avoid permanent churn.";
+    return "This customer is among your most valuable and active. They buy often, spend well, and bought recently. Prioritise retention and exclusive rewards.";
+  }
+  return "This customer shows lower engagement or spend relative to the dataset. Consider a targeted campaign to increase their lifetime value over time.";
 }
 
 function scoreLabel(s) {
@@ -95,15 +110,20 @@ function Gauge({ score }) {
 }
 
 /* ── Confidence Bar ──────────────────────────────── */
-function ConfidenceBar({ confidence }) {
-  const pct = Math.round(confidence * 100);
+function ConfidenceBar({ confidence, category }) {
+  // Fix: Show certainty in the PREDICTED class.
+  // If prob is 24% for High Value, then it's 76% for "Not High Value".
+  const prob = Math.round(confidence * 100);
+  const isHighValue = category.startsWith("High Value");
+  const pct = isHighValue ? prob : (100 - prob);
+  
   const color = pct >= 70 ? "var(--success)"
               : pct >= 45 ? "var(--warn)"
               :             "var(--danger)";
   return (
     <div className="conf-bar-wrap">
       <div className="conf-bar-header">
-        <span className="conf-bar-label">Model Confidence</span>
+        <span className="conf-bar-label">{isHighValue ? "Certainty: High Value" : "Certainty: Not High Value"}</span>
         <span className="conf-bar-value" style={{ color }}>{pct}%</span>
       </div>
       <div className="conf-bar-track">
@@ -114,10 +134,10 @@ function ConfidenceBar({ confidence }) {
       </div>
       <p className="conf-bar-note">
         {pct >= 70
-          ? "High confidence — the model is strongly certain about this classification."
+          ? "The model is strongly certain about this classification."
           : pct >= 45
-          ? "Moderate confidence — the customer sits near the segment boundary."
-          : "Lower confidence — borderline case; manual review may be useful."}
+          ? "The customer sits near the boundary, but the model leans this way."
+          : "Borderline case; the model is relatively unsure."}
       </p>
     </div>
   );
@@ -233,7 +253,7 @@ function buildExplanation(form, result) {
   return { rLabel, rSignal, fLabel, fSignal, mFmt, mLabel, mSignal, modelLogic, scoreReason, action, pct };
 }
 
-function ProfessorModal({ form, result, onClose }) {
+function ProfessorModal({ form, result, onClose, aiInsight, aiLoading, onGenerateAi }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 380);
@@ -318,6 +338,37 @@ function ProfessorModal({ form, result, onClose }) {
                 <p className="explain-para">{e.action}</p>
               </div>
 
+              {/* EXTRA AI INSIGHT SECTION */}
+              <div className="explain-section explain-section--ai">
+                <div className="ai-insight-header">
+                  <div className="explain-section-title">✨ Extra AI Insight (Grok)</div>
+                  {!aiInsight && !aiLoading && (
+                    <button className="ai-gen-btn" onClick={onGenerateAi}>
+                      Generate AI Summary
+                    </button>
+                  )}
+                </div>
+                
+                {aiLoading && (
+                  <div className="ai-loading-box">
+                    <div className="ai-spinner" />
+                    <span>Grok is analyzing your data...</span>
+                  </div>
+                )}
+
+                {aiInsight && (
+                  <div className="ai-insight-box">
+                    <div className="ai-insight-text">
+                      {aiInsight.split("\n").map((line, i) => (
+                        <p key={i} style={{ marginBottom: line.trim() === "" ? "1em" : "0.5em" }}>
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
         </div>
@@ -341,6 +392,8 @@ export default function App() {
   const [dark,        setDark]        = useState(() => localStorage.getItem("theme") !== "light");
   const [showProf,    setShowProf]    = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [aiInsight,   setAiInsight]   = useState(null);
+  const [aiLoading,   setAiLoading]   = useState(false);
 
   useEffect(() => {
     document.body.className = dark ? "dark" : "light";
@@ -368,7 +421,8 @@ export default function App() {
     }
     setLoading(true); setError(""); setFieldErrors({});
     try {
-      const res = await fetch("http://127.0.0.1:5000/predict", {
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+      const res = await fetch(`${apiUrl}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -381,6 +435,36 @@ export default function App() {
       setResult(await res.json());
     } catch { setError("⚠  Could not reach the prediction server."); }
     finally  { setLoading(false); }
+  };
+
+  const generateAiInsight = async () => {
+    if (!result) return;
+    setAiLoading(true);
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+      const res = await fetch(`${apiUrl}/explain`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recency:    Number(form.recency),
+          frequency:  Number(form.frequency),
+          monetary:   Number(form.monetary),
+          category:   result.category,
+          confidence: Math.round(result.confidence * 100),
+        }),
+      });
+      const data = await res.json();
+      if (data.explanation) {
+        setAiInsight(data.explanation);
+      } else {
+        throw new Error(data.error || "AI Generation failed");
+      }
+    } catch (err) {
+      console.error(err);
+      setAiInsight("⚠ Could not generate AI insight at this time.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const cat = result ? getCatClass(result.category) : null;
@@ -499,7 +583,7 @@ export default function App() {
               </div>
 
               {/* Model confidence bar */}
-              <ConfidenceBar confidence={result.confidence} />
+              <ConfidenceBar confidence={result.confidence} category={result.category} />
 
               {/* Segment */}
               <div className="segment-card" style={{ marginTop: 20 }}>
@@ -508,6 +592,11 @@ export default function App() {
                   <span className="dot" />{result.category}
                 </div>
                 <p className="segment-meaning">{getCatMeaning(result.category)}</p>
+                {result.status !== "Active" && (
+                  <div className="status-warning">
+                    ⚠️ Current Activity Status: <strong>{result.status}</strong>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -526,7 +615,7 @@ export default function App() {
                 <p className="score-card-text">
                   <strong>Score {result.score}/100</strong>
                   {" with "}
-                  <strong>{Math.round(result.confidence * 100)}% model confidence</strong>
+                  <strong>{Math.round(result.confidence > 0.5 ? result.confidence * 100 : (1 - result.confidence) * 100)}% model certainty</strong>
                   {" — derived from recency, frequency, and monetary signals. "}
                   {result.score >= 80 ? "Above 80: rare, highly loyal, high-spending customer."
                   : result.score >= 55 ? "55–79: solid, regularly engaging customer."
@@ -545,6 +634,9 @@ export default function App() {
         <ProfessorModal
           form={form}
           result={result}
+          aiInsight={aiInsight}
+          aiLoading={aiLoading}
+          onGenerateAi={generateAiInsight}
           onClose={() => setShowProf(false)}
         />
       )}
