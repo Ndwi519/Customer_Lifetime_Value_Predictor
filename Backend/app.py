@@ -149,7 +149,8 @@ def predict():
 @app.route('/explain', methods=['POST'])
 def explain():
     if not client:
-        return jsonify({"error": "GROK_API_KEY not configured"}), 500
+        print("DEBUG: GROK_API_KEY is missing in environment variables!")
+        return jsonify({"error": "Grok API not configured on server"}), 500
 
     data = request.json
     r = data.get("recency")
@@ -183,7 +184,8 @@ def explain():
         )
         return jsonify({"explanation": completion.choices[0].message.content})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"DEBUG: Grok AI Error: {str(e)}")
+        return jsonify({"error": f"AI Generation failed: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
