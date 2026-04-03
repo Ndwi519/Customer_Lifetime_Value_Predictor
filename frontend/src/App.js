@@ -338,37 +338,6 @@ function ProfessorModal({ form, result, onClose, aiInsight, aiLoading, onGenerat
                 <p className="explain-para">{e.action}</p>
               </div>
 
-              {/* EXTRA AI INSIGHT SECTION */}
-              <div className="explain-section explain-section--ai">
-                <div className="ai-insight-header">
-                  <div className="explain-section-title">✨ Extra AI Insight (Grok)</div>
-                  {!aiInsight && !aiLoading && (
-                    <button className="ai-gen-btn" onClick={onGenerateAi}>
-                      Generate AI Summary
-                    </button>
-                  )}
-                </div>
-                
-                {aiLoading && (
-                  <div className="ai-loading-box">
-                    <div className="ai-spinner" />
-                    <span>Grok is analyzing your data...</span>
-                  </div>
-                )}
-
-                {aiInsight && (
-                  <div className="ai-insight-box">
-                    <div className="ai-insight-text">
-                      {aiInsight.split("\n").map((line, i) => (
-                        <p key={i} style={{ marginBottom: line.trim() === "" ? "1em" : "0.5em" }}>
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
             </div>
           )}
         </div>
@@ -392,8 +361,6 @@ export default function App() {
   const [dark,        setDark]        = useState(() => localStorage.getItem("theme") !== "light");
   const [showProf,    setShowProf]    = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [aiInsight,   setAiInsight]   = useState(null);
-  const [aiLoading,   setAiLoading]   = useState(false);
 
   useEffect(() => {
     document.body.className = dark ? "dark" : "light";
@@ -438,36 +405,6 @@ export default function App() {
     finally  { setLoading(false); }
   };
 
-  const generateAiInsight = async () => {
-    if (!result) return;
-    setAiLoading(true);
-    try {
-      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
-      console.log("Current AI Server:", apiUrl);
-      const res = await fetch(`${apiUrl}/explain`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recency:    Number(form.recency),
-          frequency:  Number(form.frequency),
-          monetary:   Number(form.monetary),
-          category:   result.category,
-          confidence: Math.round(result.confidence * 100),
-        }),
-      });
-      const data = await res.json();
-      if (data.explanation) {
-        setAiInsight(data.explanation);
-      } else {
-        throw new Error(data.error || "AI Generation failed");
-      }
-    } catch (err) {
-      console.error(err);
-      setAiInsight("⚠ Could not generate AI insight at this time.");
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   const cat = result ? getCatClass(result.category) : null;
   const sl  = result ? scoreLabel(result.score)     : null;
