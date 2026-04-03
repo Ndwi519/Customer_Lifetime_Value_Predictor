@@ -267,10 +267,9 @@ function ProfessorModal({ form, result, onClose, aiInsight, aiLoading, onGenerat
 
         <div className="professor-header">
           <div className="professor-title-row">
-            <div className="professor-icon">🎓</div>
             <div>
-              <h2 className="professor-title">Model Explanation</h2>
-              <p className="professor-subtitle">How ValueSight classified this customer</p>
+              <h2 className="explain-header">Model Explanation</h2>
+              <p className="explain-subheader">HOW VALUESIGHT CLASSIFIED THIS CUSTOMER</p>
             </div>
           </div>
           <button className="professor-close" onClick={onClose}>✕</button>
@@ -481,7 +480,7 @@ export default function App() {
               ) : "Run Prediction →"}
             </button>
             <button className="explain-inline-btn" onClick={() => setShowProf(true)}>
-              🎓 Explain how this model works
+              Explain how this model works
             </button>
           </div>
         </section>
