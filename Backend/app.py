@@ -11,7 +11,8 @@ load_dotenv()
 
 app = Flask(__name__)
 # In production, set FRONTEND_URL in .env to your Vercel URL
-CORS(app, resources={r"/*": {"origins": os.getenv("FRONTEND_URL", "http://localhost:3000")}})
+# Use * temporarily to ensure Vercel can connect regardless of the specific preview URL
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize xAI Client (Grok)
 XAI_API_KEY = os.getenv("GROK_API_KEY")
@@ -68,6 +69,15 @@ def build_features(recency, frequency, monetary):
         basket_size,
         diversity_score,
     ]], columns=FEATURES)
+
+
+@app.route('/')
+def home():
+    return jsonify({
+        "status": "online",
+        "message": "CLV Prediction API is running",
+        "endpoints": ["/predict", "/explain"]
+    })
 
 
 @app.route('/predict', methods=['POST'])
